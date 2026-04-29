@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { hasFirebaseConfig } from "../lib/firebase";
 import { getKakaoKey, setKakaoKey } from "../lib/kakao";
+import { getNaverStatus } from "../lib/naver";
 import { btnPrimaryCls } from "./ClinicForm";
 import { IconCheck, IconExternal, IconX } from "./Icons";
 
@@ -13,6 +14,10 @@ export default function SettingsPanel() {
     configured: true,
     projectId: "",
   });
+  const [naver, setNaver] = useState<{
+    configured: boolean;
+    loaded: boolean;
+  }>({ configured: false, loaded: false });
 
   useEffect(() => {
     setKakaoKeyState(getKakaoKey());
@@ -20,6 +25,13 @@ export default function SettingsPanel() {
       configured: hasFirebaseConfig(),
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
     });
+    let cancelled = false;
+    getNaverStatus().then((res) => {
+      if (!cancelled) setNaver({ configured: res.configured, loaded: true });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onSave = () => {
@@ -111,6 +123,79 @@ export default function SettingsPanel() {
             </button>
           </div>
         )}
+      </Card>
+
+      <Card
+        title="Naver Open API"
+        caption="외부 키 (서버)"
+        statusOk={naver.configured}
+        statusOkText={naver.loaded ? "ready" : "checking…"}
+        statusBadText="missing"
+      >
+        <p
+          className="text-[13.5px] m-0 mb-4"
+          style={{ color: "var(--color-ink-2)" }}
+        >
+          Naver 지역검색(Local Search)에 사용합니다.{" "}
+          <a
+            href="https://developers.naver.com/apps"
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1 underline font-semibold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            developers.naver.com
+            <IconExternal width={12} height={12} />
+          </a>
+          에서 애플리케이션을 등록하고 “검색” API를 추가하면 Client ID / Secret을
+          받을 수 있습니다. 브라우저에서 직접 호출할 수 없어 Next.js API
+          라우트가 서버에서 프록시합니다.
+        </p>
+        <Banner tone={naver.configured ? "success" : "danger"}>
+          {naver.configured ? (
+            <>
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                NAVER_CLIENT_ID
+              </code>
+              {" / "}
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                NAVER_CLIENT_SECRET
+              </code>
+              가 서버에 설정되어 있습니다.
+            </>
+          ) : (
+            <>
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                .env.local
+              </code>{" "}
+              에{" "}
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                NAVER_CLIENT_ID
+              </code>
+              {" / "}
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                NAVER_CLIENT_SECRET
+              </code>
+              를 추가하고 dev 서버를 재시작하세요. 두 값은{" "}
+              <strong>NEXT_PUBLIC_*</strong> 접두사 없이 서버 전용으로 두세요.
+            </>
+          )}
+        </Banner>
       </Card>
 
       <Card
