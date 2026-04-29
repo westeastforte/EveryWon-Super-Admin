@@ -2,12 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { createClinic } from "../lib/clinics";
-import {
-  type DaumPostcodeData,
-  geocodeAddress,
-  getKakaoKey,
-  openPostcode,
-} from "../lib/kakao";
+import { type DaumPostcodeData, openPostcode } from "../lib/kakao";
+import { geocodeAddressViaNaver } from "../lib/naver";
 import type { ClinicFormInput } from "../types";
 
 const CATEGORIES: { value: string; label: string }[] = [
@@ -30,7 +26,7 @@ interface AddressState {
   region?: string;
   district?: string;
   geo?: { lat: number; lng: number };
-  geoStatus: "idle" | "geocoding" | "ok" | "missing-key" | "not-found" | "error";
+  geoStatus: "idle" | "geocoding" | "ok" | "not-found" | "error";
 }
 
 const emptyAddress: AddressState = { address: "", geoStatus: "idle" };
@@ -73,13 +69,8 @@ export default function ClinicForm() {
         };
         setAddr(next);
 
-        const key = getKakaoKey();
-        if (!key) {
-          setAddr({ ...next, geoStatus: "missing-key" });
-          return;
-        }
         try {
-          const geo = await geocodeAddress(chosen, key);
+          const geo = await geocodeAddressViaNaver(chosen, data.buildingName);
           if (geo) {
             setAddr({ ...next, geo, geoStatus: "ok" });
           } else {
@@ -126,11 +117,11 @@ export default function ClinicForm() {
         englishAvailable,
       };
       const id = await createClinic(input);
+      reset();
       setMessage({
         kind: "success",
         text: `등록 완료! (${id.slice(0, 6)}…) 환자 앱에서 바로 보입니다.`,
       });
-      reset();
     } catch (err) {
       console.error(err);
       const text =
@@ -350,16 +341,12 @@ function GeoIndicator({ state }: { state: AddressState }) {
         : "—";
       tone = "ok";
       break;
-    case "missing-key":
-      label = "Kakao 키가 없어 좌표를 저장하지 않습니다 (지도에 서울 기본 위치로 표시)";
-      tone = "warn";
-      break;
     case "not-found":
-      label = "Kakao에서 좌표를 찾지 못했습니다";
+      label = "Naver에서 좌표를 찾지 못했습니다 (지도에 서울 기본 위치로 표시)";
       tone = "warn";
       break;
     case "error":
-      label = "Kakao 좌표 변환 실패 — 키가 올바른지 확인하세요";
+      label = "Naver 좌표 변환 실패 — NAVER_CLIENT_ID·SECRET를 확인하세요";
       tone = "err";
       break;
   }

@@ -92,6 +92,37 @@ export const searchNaverPlaces = async (
   };
 };
 
+// Best-effort geocoder built on Naver Local Search. Naver indexes
+// businesses, not addresses, so a raw road-address query almost always
+// returns 0 results. Daum Postcode supplies a building name for most
+// modern Korean addresses; we query that first (it usually has the
+// building's main tenant indexed with coords), then fall back to a
+// combined query, then the address alone. Returns null if all attempts
+// miss — the form saves the clinic without geo and the patient app
+// falls back to a default Seoul pin.
+export const geocodeAddressViaNaver = async (
+  address: string,
+  buildingHint?: string,
+): Promise<{ lat: number; lng: number } | null> => {
+  const addr = address.trim();
+  const hint = buildingHint?.trim();
+  if (!addr && !hint) return null;
+  const queries = [
+    hint,
+    hint && addr ? `${hint} ${addr}` : undefined,
+    addr,
+  ].filter((q): q is string => Boolean(q));
+  for (const q of queries) {
+    try {
+      const { results } = await searchNaverPlaces(q, { display: 1 });
+      if (results[0]?.geo) return results[0].geo;
+    } catch {
+      // try the next query — a single bad lookup shouldn't fail the chain
+    }
+  }
+  return null;
+};
+
 export const getNaverStatus = async (): Promise<{ configured: boolean }> => {
   try {
     const res = await fetch("/api/naver/status", { cache: "no-store" });
