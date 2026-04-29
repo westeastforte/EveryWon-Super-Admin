@@ -1,0 +1,213 @@
+---
+title: Getting Kakao & Naver API keys
+description: Step-by-step guide for the two Korean place-search APIs the admin console uses.
+---
+
+# Getting Kakao & Naver API keys
+
+The "Search & Add" page (`/clinics/search`) can query either **Kakao** or
+**Naver** for clinic listings. Each provider has its own free developer
+console and credential model — this doc walks through both end-to-end.
+
+| Provider | Console | Credential type | Where it lives |
+| --- | --- | --- | --- |
+| Kakao | [developers.kakao.com](https://developers.kakao.com/console/app) | JavaScript key | Browser (env var **or** localStorage) |
+| Naver | [developers.naver.com](https://developers.naver.com/apps) | Client ID + Secret | Server only (`.env.local`) |
+
+> Naver's open API blocks browser CORS and requires signed headers, so the
+> admin console proxies it through the Next route handler at
+> `app/api/naver/search/route.ts`. That's why Naver credentials must be
+> server-side and Kakao's can be client-side.
+
+---
+
+## 1. Kakao Maps — JavaScript key
+
+Kakao powers the default tab. You get an **address search** SDK (Daum
+Postcode) and a **places + geocoder** SDK from the same key.
+
+### 1.1 Sign in and create an application
+
+1. Go to <https://developers.kakao.com/> and sign in with a Kakao account.
+2. Open **My Application → Add an application** (내 애플리케이션 → 애플리케이션 추가하기).
+3. Fill in:
+   - **App name**: anything (e.g. `Everywon Admin`)
+   - **Company name**: your team or personal name
+4. Save. You'll land on the app's overview page.
+
+### 1.2 Copy the JavaScript key
+
+On the overview page you'll see four keys: **Native app**, **REST API**,
+**JavaScript**, and **Admin**.
+
+> Use the **JavaScript key**. The other three will not work with the
+> Maps SDK loaded by `lib/kakao.ts`.
+
+### 1.3 Register the web platform
+
+1. In the left sidebar: **App Settings → Platform → Web** (앱 설정 → 플랫폼 → Web).
+2. Add the domains your dev / prod servers run on. For local dev:
+
+   ```
+   http://localhost:3000
+   ```
+
+   Add staging / production origins too (e.g. `https://admin.everywon.app`).
+
+> If you skip this step, every Kakao Maps call will fail with a
+> `Cross-Origin` error in the browser console.
+
+### 1.4 Wire it into the admin console
+
+You have two options:
+
+**Option A — environment variable (recommended for deploys)**
+
+Create or edit `.env.local` at the repo root:
+
+```bash
+NEXT_PUBLIC_KAKAO_MAP_KEY=0123456789abcdef0123456789abcdef
+```
+
+Restart `npm run dev`. The Settings page will show **ready** and
+the input box will be locked.
+
+**Option B — paste it in Settings (recommended for quick local tests)**
+
+Open `/settings`, paste the key into the **Kakao Maps API → JavaScript 키**
+field, click **저장**. The key is stored in `localStorage` under
+`everywonadmin:kakaoKey` and used immediately on the next search.
+
+### 1.5 Verify
+
+1. Open `/clinics/search`.
+2. Make sure the **Kakao** tab is selected.
+3. Search for `강남이비인후과`. You should see ~15 results within a second.
+
+If you see a "Kakao API 키가 필요합니다" banner, the key isn't being
+picked up — re-check Option A or B above.
+
+---
+
+## 2. Naver — Local Search Client ID & Secret
+
+Naver's Local Search returns slightly different listings than Kakao
+(stronger on small/independent practices, weaker on phone numbers).
+Useful as a second source when Kakao misses a clinic.
+
+### 2.1 Sign in and create an application
+
+1. Go to <https://developers.naver.com/main/> and sign in.
+2. Open **Application → Register Application** (애플리케이션 → 애플리케이션 등록).
+3. Fill in:
+   - **App name**: e.g. `Everywon Admin`
+   - **Usage API**: tick **검색 (Search)**.
+     This is the only API the admin console needs.
+   - **Service Environment**: pick **WEB 설정** and add the origin where
+     your Next server runs (e.g. `http://localhost:3000`).
+4. Click **등록하기**. You'll be redirected to the application detail page.
+
+> The other Naver APIs (Maps, Geocoding) require business verification
+> and are paid above a tiny free tier. The Local Search API used here is
+> free for normal volumes — 25,000 calls/day at the time of writing.
+
+### 2.2 Copy Client ID and Client Secret
+
+On the application detail page you'll see two values under **개요 (Overview)**:
+
+- **Client ID** — public-ish identifier, ~20 alphanumeric chars
+- **Client Secret** — keep this private; click **보기** to reveal
+
+Copy both. You'll paste them into `.env.local` next.
+
+### 2.3 Wire it into the admin console
+
+Naver does **not** allow browser-side calls (no CORS, requires signed
+headers), so the admin console proxies the request through
+`/api/naver/search`, which reads the credentials from server-only env
+vars. Edit `.env.local`:
+
+```bash
+# Server-only — DO NOT prefix with NEXT_PUBLIC_, or the secret will leak
+# into the browser bundle.
+NAVER_CLIENT_ID=abcDEF12345
+NAVER_CLIENT_SECRET=AbCdEfGhIj
+```
+
+Restart `npm run dev` after editing — Next.js only reads `.env.local`
+at boot.
+
+### 2.4 Verify
+
+1. Open `/settings`. The **Naver Open API** card should flip from
+   **missing** to **ready** within a second of page load.
+   That status is fetched from `/api/naver/status`, which only returns
+   a boolean — the secret never leaves the server.
+2. Open `/clinics/search` and switch to the **Naver** tab.
+3. Search for `강남 이비인후과`. You'll get up to **5** results
+   (Naver Local Search caps `display` at 5; the UI shows a small note
+   reminding you of this).
+
+If you see "Naver Open API 자격증명이 서버에 설정되어 있지 않습니다",
+the env vars aren't loaded — common causes:
+
+- File is named `.env` instead of `.env.local`
+- The dev server wasn't restarted after editing
+- Variable was prefixed `NEXT_PUBLIC_` (the route handler reads the
+  un-prefixed names only)
+
+---
+
+## 3. Putting both into `.env.local`
+
+A complete admin-console env file looks like this:
+
+```bash
+# Patient-app Firebase project (shared with clinicdashboard)
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+
+# Kakao — JavaScript key (browser-safe by design)
+NEXT_PUBLIC_KAKAO_MAP_KEY=0123456789abcdef0123456789abcdef
+
+# Naver — Local Search (server only)
+NAVER_CLIENT_ID=abcDEF12345
+NAVER_CLIENT_SECRET=AbCdEfGhIj
+```
+
+After editing, restart with `npm run dev` and confirm both providers
+return results on `/clinics/search`.
+
+---
+
+## 4. Troubleshooting
+
+### Kakao: `Failed to load https://dapi.kakao.com/v2/maps/sdk.js`
+
+The domain isn't registered on the Kakao app's Web platform list, or
+the JavaScript key is wrong. Re-do step 1.3.
+
+### Kakao: results show but `+ 등록` fails
+
+That's a Firestore error, not a Kakao issue. Check Firebase config in
+Settings and the browser console for the underlying message.
+
+### Naver: 401 from `/api/naver/search`
+
+Bad Client Secret, or the application doesn't have **검색 (Search)**
+ticked. Re-check the Naver console.
+
+### Naver: 429 Too Many Requests
+
+You've hit the daily quota (25,000/day default). Either wait until
+00:00 KST or request a higher limit on the application page.
+
+### Both providers: "category 좌표 없음"
+
+The provider didn't return coordinates. Common for Naver hits in rural
+areas. The clinic still saves but won't appear on the map until you
+edit it via `/clinics/add` and let Kakao geocode the address.
