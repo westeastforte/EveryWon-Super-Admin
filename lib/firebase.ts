@@ -1,7 +1,7 @@
 "use client";
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { Firestore, getFirestore } from "firebase/firestore";
+import { Firestore, getFirestore, initializeFirestore } from "firebase/firestore";
 
 // Firebase web config keys are not secrets — they identify the project.
 // Security for clinic writes is enforced by the shared Firestore rules
@@ -27,7 +27,17 @@ export const getFirebaseApp = (): FirebaseApp => {
 
 export const getDb = (): Firestore => {
   if (_db) return _db;
-  _db = getFirestore(getFirebaseApp());
+  const app = getFirebaseApp();
+  // ignoreUndefinedProperties lets buildDoc() in lib/clinics.ts emit
+  // `field: undefined` for blank optional inputs without addDoc throwing —
+  // Firestore drops the key instead of rejecting the write. Must run
+  // before any other Firestore call on this app, hence initializeFirestore
+  // (with a try/catch fallback for hot-reload, where it's already inited).
+  try {
+    _db = initializeFirestore(app, { ignoreUndefinedProperties: true });
+  } catch {
+    _db = getFirestore(app);
+  }
   return _db;
 };
 
