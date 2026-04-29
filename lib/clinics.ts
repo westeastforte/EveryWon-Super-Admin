@@ -1,0 +1,119 @@
+"use client";
+
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  writeBatch,
+} from "firebase/firestore";
+import { getDb } from "./firebase";
+import type { ClinicDoc, ClinicFormInput } from "../types";
+
+const COLLECTION = "clinics";
+
+// Build a complete Clinic document from the minimal admin form. Defaults
+// match what the patient app's `adaptDashClinicToApp` (in
+// `data/clinicsRepo.ts`) expects so freshly-registered clinics render
+// correctly in the patient list and on the map.
+const buildDoc = (
+  input: ClinicFormInput,
+): Omit<ClinicDoc, "id"> => {
+  const now = new Date().toISOString();
+  const displayName = input.nameKr || input.nameEn || "Unnamed clinic";
+
+  return {
+    name: displayName,
+    nameKr: input.nameKr || undefined,
+    nameEn: input.nameEn?.trim() || undefined,
+    address: input.address,
+    addressText: input.address,
+    addressDetail: input.addressDetail?.trim() || undefined,
+    region: input.region,
+    district: input.district,
+    geo: input.geo,
+    category: input.category || "general",
+    hours: input.hours?.trim() || "—",
+    isOpen: true,
+    availableSlots: 0,
+    waitTime: 0,
+    rating: 0,
+    services: [],
+    doctors: [],
+    phone: input.phone?.trim() || "",
+    englishAvailable: Boolean(input.englishAvailable),
+    isActive: true,
+    isVerified: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+export const createClinic = async (input: ClinicFormInput): Promise<string> => {
+  const ref = await addDoc(collection(getDb(), COLLECTION), buildDoc(input));
+  return ref.id;
+};
+
+// Firestore batched writes are capped at 500 ops. We chunk so a CSV with
+// thousands of rows still completes — each chunk is a single round-trip.
+const BATCH_SIZE = 400;
+
+export interface BulkResult {
+  written: number;
+  failed: number;
+  errors: string[];
+}
+
+export const createClinicsBulk = async (
+  inputs: ClinicFormInput[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<BulkResult> => {
+  const db = getDb();
+  const total = inputs.length;
+  let written = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < inputs.length; i += BATCH_SIZE) {
+    const slice = inputs.slice(i, i + BATCH_SIZE);
+    const batch = writeBatch(db);
+    for (const input of slice) {
+      const ref = doc(collection(db, COLLECTION));
+      batch.set(ref, buildDoc(input));
+    }
+    try {
+      await batch.commit();
+      written += slice.length;
+    } catch (err) {
+      failed += slice.length;
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+    onProgress?.(Math.min(i + BATCH_SIZE, total), total);
+  }
+
+  return { written, failed, errors };
+};
+
+export const deleteClinic = async (id: string): Promise<void> => {
+  await deleteDoc(doc(getDb(), COLLECTION, id));
+};
+
+export const subscribeClinics = (
+  cb: (clinics: ClinicDoc[]) => void,
+  onError?: (err: Error) => void,
+): (() => void) => {
+  const q = query(collection(getDb(), COLLECTION), orderBy("createdAt", "desc"));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const clinics = snap.docs.map(
+        (d) => ({ id: d.id, ...(d.data() as Omit<ClinicDoc, "id">) }),
+      );
+      cb(clinics);
+    },
+    (err) => onError?.(err),
+  );
+};

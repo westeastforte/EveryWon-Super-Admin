@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------
+   Design system — warm/refined, Stripe/Linear-leaning, monochrome
+   accent. Avoids the default cold-blue admin look.
+   --------------------------------------------------------------- */
+
+@theme {
+  --font-sans:
+    "Inter", "Pretendard", -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Surfaces */
+  --color-canvas: #f6f5f1;        /* warm cream — distinctive vs. slate-50 */
+  --color-card: #ffffff;
+  --color-rule: #ebe9e2;          /* warm border */
+  --color-rule-strong: #d8d4ca;
+  --color-subtle: #f1efe8;        /* tint for stat panels, dashed dropzones */
+
+  /* Ink — body text stays near-black for readability */
+  --color-ink: #1a201f;
+  --color-ink-2: #5e6868;
+  --color-ink-3: #9aa3a2;
+
+  /* Accent — deep teal. Pairs with the warm cream canvas; reads as
+     healthcare-adjacent without being clinical-blue. */
+  --color-accent: #0e5c50;
+  --color-accent-hover: #0a4a40;
+  --color-accent-fg: #ffffff;
+
+  /* Sidebar — saturated forest-teal rail. Picks up the accent so the
+     palette feels intentional rather than monochrome-with-a-pop. */
+  --color-rail: #0e3a35;
+  --color-rail-2: #0f463f;
+  --color-rail-rule: #1a544c;
+  --color-rail-ink: #ecf2ef;
+  --color-rail-ink-muted: #8aa8a1;
+
+  /* Semantic */
+  --color-success: #0e9f6e;
+  --color-success-soft: #e6f6ef;
+  --color-warn: #b87514;
+  --color-warn-soft: #faf2e2;
+  --color-danger: #c33636;
+  --color-danger-soft: #fbe9e9;
+}
+
+* {
+  border-color: var(--color-rule);
+}
+
+html, body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Selection that matches the warm tone instead of OS default blue. */
+::selection {
+  background: var(--color-ink);
+  color: var(--color-accent-fg);
+}
+
+/* Modal polish */
+dialog::backdrop {
+  background: rgba(14, 16, 22, 0.45);
+}
+
+/* Number-y feel for stat values */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle dotted backdrop used on hero / overview cards. Cheap visual
+   interest, no images. */
+.dot-grid {
+  background-image: radial-gradient(
+    var(--color-rule) 1px,
+    transparent 1px
+  );
+  background-size: 14px 14px;
+}
