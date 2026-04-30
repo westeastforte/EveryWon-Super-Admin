@@ -15,6 +15,36 @@ import type { ClinicDoc, ClinicFormInput } from "../types";
 
 const COLLECTION = "clinics";
 
+// Per-request cap on /api/translate. Match this to MAX_ITEMS in the
+// route — sending more would 400.
+const TRANSLATE_CHUNK = 50;
+
+// Best-effort English-name fill via /api/translate (Gemini). Translation
+// is non-fatal: if Gemini is misconfigured or fails, we return undefineds
+// and the clinic is still written without nameEn — the patient app falls
+// back to nameKr / name on display.
+const fetchTranslations = async (
+  items: { nameKr: string; address?: string }[],
+): Promise<(string | undefined)[]> => {
+  if (items.length === 0) return [];
+  try {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    if (!res.ok) return items.map(() => undefined);
+    const data = (await res.json()) as { translations?: unknown };
+    if (!Array.isArray(data.translations)) return items.map(() => undefined);
+    return data.translations.map((v) => {
+      const s = typeof v === "string" ? v.trim() : "";
+      return s || undefined;
+    });
+  } catch {
+    return items.map(() => undefined);
+  }
+};
+
 // Build a complete Clinic document from the minimal admin form. Defaults
 // match what the patient app's `adaptDashClinicToApp` (in
 // `data/clinicsRepo.ts`) expects so freshly-registered clinics render
@@ -53,7 +83,14 @@ const buildDoc = (
 };
 
 export const createClinic = async (input: ClinicFormInput): Promise<string> => {
-  const ref = await addDoc(collection(getDb(), COLLECTION), buildDoc(input));
+  let final = input;
+  if (input.nameKr && !input.nameEn?.trim()) {
+    const [translated] = await fetchTranslations([
+      { nameKr: input.nameKr, address: input.address },
+    ]);
+    if (translated) final = { ...input, nameEn: translated };
+  }
+  const ref = await addDoc(collection(getDb(), COLLECTION), buildDoc(final));
   return ref.id;
 };
 
@@ -67,9 +104,11 @@ export interface BulkResult {
   errors: string[];
 }
 
+export type BulkPhase = "translating" | "writing";
+
 export const createClinicsBulk = async (
   inputs: ClinicFormInput[],
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, phase: BulkPhase) => void,
 ): Promise<BulkResult> => {
   const db = getDb();
   const total = inputs.length;
@@ -77,8 +116,37 @@ export const createClinicsBulk = async (
   let failed = 0;
   const errors: string[] = [];
 
-  for (let i = 0; i < inputs.length; i += BATCH_SIZE) {
-    const slice = inputs.slice(i, i + BATCH_SIZE);
+  // Phase 1: fill in English names for rows that have nameKr but no
+  // nameEn. We resolve in-place into a parallel array so a translation
+  // failure on one chunk doesn't block the rest of the import.
+  const needsTranslate: { idx: number; nameKr: string; address?: string }[] = [];
+  inputs.forEach((it, idx) => {
+    if (it.nameKr && !it.nameEn?.trim()) {
+      needsTranslate.push({ idx, nameKr: it.nameKr, address: it.address });
+    }
+  });
+  const enriched = inputs.slice();
+  if (needsTranslate.length > 0) {
+    onProgress?.(0, needsTranslate.length, "translating");
+    let done = 0;
+    for (let i = 0; i < needsTranslate.length; i += TRANSLATE_CHUNK) {
+      const slice = needsTranslate.slice(i, i + TRANSLATE_CHUNK);
+      const out = await fetchTranslations(
+        slice.map(({ nameKr, address }) => ({ nameKr, address })),
+      );
+      slice.forEach((entry, j) => {
+        const en = out[j];
+        if (en) enriched[entry.idx] = { ...enriched[entry.idx], nameEn: en };
+      });
+      done += slice.length;
+      onProgress?.(done, needsTranslate.length, "translating");
+    }
+  }
+
+  // Phase 2: chunked Firestore writes (unchanged logic).
+  onProgress?.(0, total, "writing");
+  for (let i = 0; i < enriched.length; i += BATCH_SIZE) {
+    const slice = enriched.slice(i, i + BATCH_SIZE);
     const batch = writeBatch(db);
     for (const input of slice) {
       const ref = doc(collection(db, COLLECTION));
@@ -91,7 +159,7 @@ export const createClinicsBulk = async (
       failed += slice.length;
       errors.push(err instanceof Error ? err.message : String(err));
     }
-    onProgress?.(Math.min(i + BATCH_SIZE, total), total);
+    onProgress?.(Math.min(i + BATCH_SIZE, total), total, "writing");
   }
 
   return { written, failed, errors };

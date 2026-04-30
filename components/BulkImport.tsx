@@ -20,6 +20,7 @@ type ImportPhase =
   | { kind: "idle" }
   | { kind: "uploading" }
   | { kind: "parsed" }
+  | { kind: "translating"; done: number; total: number }
   | { kind: "writing"; done: number; total: number }
   | { kind: "done"; written: number; failed: number; errors: string[] }
   | { kind: "error"; message: string };
@@ -90,9 +91,12 @@ export default function BulkImport() {
       return;
     setPhase({ kind: "writing", done: 0, total: filteredInputs.length });
     try {
-      const result = await createClinicsBulk(filteredInputs, (done, total) => {
-        setPhase({ kind: "writing", done, total });
-      });
+      const result = await createClinicsBulk(
+        filteredInputs,
+        (done, total, phase) => {
+          setPhase({ kind: phase, done, total });
+        },
+      );
       setPhase({
         kind: "done",
         written: result.written,
@@ -176,7 +180,11 @@ export default function BulkImport() {
             accept=".csv,text/csv"
             onChange={onFile}
             className="hidden"
-            disabled={phase.kind === "writing" || phase.kind === "uploading"}
+            disabled={
+              phase.kind === "writing" ||
+              phase.kind === "uploading" ||
+              phase.kind === "translating"
+            }
           />
         </label>
 
@@ -307,19 +315,25 @@ export default function BulkImport() {
                 type="button"
                 onClick={onImport}
                 disabled={
-                  filteredInputs.length === 0 || phase.kind === "writing"
+                  filteredInputs.length === 0 ||
+                  phase.kind === "writing" ||
+                  phase.kind === "translating"
                 }
                 className={btnPrimaryCls + " h-11 px-6"}
               >
-                {phase.kind === "writing"
-                  ? `등록 중… ${phase.done.toLocaleString()} / ${phase.total.toLocaleString()}`
-                  : `${filteredInputs.length.toLocaleString()}곳 등록하기`}
+                {phase.kind === "translating"
+                  ? `영문명 번역 중… ${phase.done.toLocaleString()} / ${phase.total.toLocaleString()}`
+                  : phase.kind === "writing"
+                    ? `등록 중… ${phase.done.toLocaleString()} / ${phase.total.toLocaleString()}`
+                    : `${filteredInputs.length.toLocaleString()}곳 등록하기`}
               </button>
               <button
                 type="button"
                 onClick={onReset}
                 className={btnSecondaryCls + " h-11 px-5"}
-                disabled={phase.kind === "writing"}
+                disabled={
+                  phase.kind === "writing" || phase.kind === "translating"
+                }
               >
                 초기화
               </button>
@@ -333,7 +347,7 @@ export default function BulkImport() {
               </Link>
             </div>
 
-            {phase.kind === "writing" && (
+            {(phase.kind === "writing" || phase.kind === "translating") && (
               <div className="mt-4">
                 <div
                   className="h-1.5 w-full rounded-full overflow-hidden"
@@ -347,6 +361,14 @@ export default function BulkImport() {
                     }}
                   />
                 </div>
+                {phase.kind === "translating" && (
+                  <div
+                    className="text-[11.5px] mt-1.5"
+                    style={{ color: "var(--color-ink-3)" }}
+                  >
+                    Gemini로 영문명 채우는 중…
+                  </div>
+                )}
               </div>
             )}
 
