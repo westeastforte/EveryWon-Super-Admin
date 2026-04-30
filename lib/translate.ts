@@ -65,6 +65,26 @@ export const translateClinicName = async (
 const stripFences = (s: string): string =>
   s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
+// Round-trip the API with a tiny known input to confirm the key is
+// valid, the model is reachable, and the JSON shape matches what the
+// caller expects. Used by the Settings "Test" button.
+export const pingGemini = async (): Promise<{
+  ok: boolean;
+  sample?: string;
+  error?: string;
+}> => {
+  if (!process.env.GEMINI_API_KEY) {
+    return { ok: false, error: "GEMINI_API_KEY missing on server" };
+  }
+  try {
+    const out = await translateClinicName({ nameKr: "강남이비인후과" });
+    if (!out) return { ok: false, error: "empty response" };
+    return { ok: true, sample: out };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+};
+
 export const translateClinicNamesBatch = async (
   items: TranslateItem[],
 ): Promise<string[]> => {

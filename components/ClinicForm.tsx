@@ -4,7 +4,17 @@ import { FormEvent, useState } from "react";
 import { createClinic } from "../lib/clinics";
 import { type DaumPostcodeData, openPostcode } from "../lib/kakao";
 import { geocodeAddressViaNaver } from "../lib/naver";
-import type { ClinicFormInput } from "../types";
+import type { ClinicFormInput, ClinicDoc } from "../types";
+
+export interface ClinicFormProps {
+  // When provided the form is in edit mode: prefilled with `initial` and
+  // submission is delegated to `onSubmit` (typically wrapping
+  // updateClinic). Defaults: create mode → calls createClinic.
+  initial?: ClinicDoc;
+  onSubmit?: (input: ClinicFormInput) => Promise<string | void>;
+  submitLabel?: string;
+  successMessage?: (idOrLabel: string) => string;
+}
 
 const CATEGORIES: { value: string; label: string }[] = [
   { value: "general", label: "General · 일반" },
@@ -31,29 +41,62 @@ interface AddressState {
 
 const emptyAddress: AddressState = { address: "", geoStatus: "idle" };
 
-export default function ClinicForm() {
-  const [nameKr, setNameKr] = useState("");
-  const [nameEn, setNameEn] = useState("");
-  const [addressDetail, setAddressDetail] = useState("");
-  const [category, setCategory] = useState("general");
-  const [phone, setPhone] = useState("");
-  const [hours, setHours] = useState("");
-  const [englishAvailable, setEnglishAvailable] = useState(false);
+export default function ClinicForm({
+  initial,
+  onSubmit: onSubmitProp,
+  submitLabel,
+  successMessage,
+}: ClinicFormProps = {}) {
+  const isEdit = Boolean(initial);
 
-  const [addr, setAddr] = useState<AddressState>(emptyAddress);
+  const [nameKr, setNameKr] = useState(initial?.nameKr || "");
+  const [nameEn, setNameEn] = useState(initial?.nameEn || "");
+  const [addressDetail, setAddressDetail] = useState(
+    initial?.addressDetail || "",
+  );
+  const [category, setCategory] = useState(initial?.category || "general");
+  const [phone, setPhone] = useState(initial?.phone || "");
+  const [hours, setHours] = useState(
+    initial?.hours && initial.hours !== "—" ? initial.hours : "",
+  );
+  const [englishAvailable, setEnglishAvailable] = useState(
+    Boolean(initial?.englishAvailable),
+  );
+
+  const [addr, setAddr] = useState<AddressState>(
+    initial
+      ? {
+          address: initial.address || "",
+          region: initial.region,
+          district: initial.district,
+          geo: initial.geo,
+          geoStatus: initial.geo ? "ok" : "idle",
+        }
+      : emptyAddress,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] =
     useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   const reset = () => {
-    setNameKr("");
-    setNameEn("");
-    setAddressDetail("");
-    setCategory("general");
-    setPhone("");
-    setHours("");
-    setEnglishAvailable(false);
-    setAddr(emptyAddress);
+    setNameKr(initial?.nameKr || "");
+    setNameEn(initial?.nameEn || "");
+    setAddressDetail(initial?.addressDetail || "");
+    setCategory(initial?.category || "general");
+    setPhone(initial?.phone || "");
+    setHours(initial?.hours && initial.hours !== "—" ? initial.hours : "");
+    setEnglishAvailable(Boolean(initial?.englishAvailable));
+    setAddr(
+      initial
+        ? {
+            address: initial.address || "",
+            region: initial.region,
+            district: initial.district,
+            geo: initial.geo,
+            geoStatus: initial.geo ? "ok" : "idle",
+          }
+        : emptyAddress,
+    );
     setMessage(null);
   };
 
@@ -116,11 +159,17 @@ export default function ClinicForm() {
         hours: hours.trim() || undefined,
         englishAvailable,
       };
-      const id = await createClinic(input);
-      reset();
+      const result = onSubmitProp
+        ? await onSubmitProp(input)
+        : await createClinic(input);
+      const idOrLabel = typeof result === "string" ? result : initial?.id || "";
+      if (!isEdit) reset();
+      const defaultMsg = isEdit
+        ? "수정 완료!"
+        : `등록 완료! (${idOrLabel.slice(0, 6)}…) 환자 앱에서 바로 보입니다.`;
       setMessage({
         kind: "success",
-        text: `등록 완료! (${id.slice(0, 6)}…) 환자 앱에서 바로 보입니다.`,
+        text: successMessage ? successMessage(idOrLabel) : defaultMsg,
       });
     } catch (err) {
       console.error(err);
@@ -259,7 +308,11 @@ export default function ClinicForm() {
             disabled={submitting}
             className={btnPrimaryCls + " h-11 px-6"}
           >
-            {submitting ? "등록 중…" : "등록 · Register"}
+            {submitting
+              ? isEdit
+                ? "저장 중…"
+                : "등록 중…"
+              : submitLabel || (isEdit ? "저장 · Save" : "등록 · Register")}
           </button>
         </div>
 

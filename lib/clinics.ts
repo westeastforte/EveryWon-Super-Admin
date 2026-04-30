@@ -5,9 +5,11 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
+  updateDoc,
   writeBatch,
 } from "firebase/firestore";
 import { getDb } from "./firebase";
@@ -167,6 +169,54 @@ export const createClinicsBulk = async (
 
 export const deleteClinic = async (id: string): Promise<void> => {
   await deleteDoc(doc(getDb(), COLLECTION, id));
+};
+
+export const getClinic = async (id: string): Promise<ClinicDoc | null> => {
+  const snap = await getDoc(doc(getDb(), COLLECTION, id));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...(snap.data() as Omit<ClinicDoc, "id">) };
+};
+
+// Partial update. We always bump updatedAt and strip undefined keys —
+// Firestore rejects undefined values, and an undefined-overwrite would
+// blank out a field unintentionally. To explicitly clear a field, pass
+// null.
+export const updateClinic = async (
+  id: string,
+  patch: Partial<Omit<ClinicDoc, "id" | "createdAt">>,
+): Promise<void> => {
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v !== undefined) cleaned[k] = v;
+  }
+  cleaned.updatedAt = new Date().toISOString();
+  await updateDoc(doc(getDb(), COLLECTION, id), cleaned);
+};
+
+// Translate a single clinic name via /api/translate and persist nameEn.
+// Returns the new English name (or null on failure). Used by the manual
+// "Translate" action on the clinics list / detail pages.
+export const translateClinicNow = async (
+  id: string,
+  nameKr: string,
+  address?: string,
+): Promise<string | null> => {
+  try {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: [{ nameKr, address }] }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { translations?: unknown };
+    const list = Array.isArray(data.translations) ? data.translations : [];
+    const en = typeof list[0] === "string" ? list[0].trim() : "";
+    if (!en) return null;
+    await updateClinic(id, { nameEn: en });
+    return en;
+  } catch {
+    return null;
+  }
 };
 
 export const subscribeClinics = (

@@ -4,8 +4,14 @@ import { useEffect, useState } from "react";
 import { hasFirebaseConfig } from "../lib/firebase";
 import { getKakaoKey, setKakaoKey } from "../lib/kakao";
 import { getNaverStatus } from "../lib/naver";
-import { btnPrimaryCls } from "./ClinicForm";
+import { btnPrimaryCls, btnSecondaryCls } from "./ClinicForm";
 import { IconCheck, IconExternal, IconX } from "./Icons";
+
+interface GeminiTest {
+  state: "idle" | "running" | "ok" | "error";
+  sample?: string;
+  error?: string;
+}
 
 export default function SettingsPanel() {
   const [kakaoKey, setKakaoKeyState] = useState("");
@@ -18,6 +24,11 @@ export default function SettingsPanel() {
     configured: boolean;
     loaded: boolean;
   }>({ configured: false, loaded: false });
+  const [gemini, setGemini] = useState<{
+    configured: boolean;
+    loaded: boolean;
+  }>({ configured: false, loaded: false });
+  const [geminiTest, setGeminiTest] = useState<GeminiTest>({ state: "idle" });
 
   useEffect(() => {
     setKakaoKeyState(getKakaoKey());
@@ -29,10 +40,44 @@ export default function SettingsPanel() {
     getNaverStatus().then((res) => {
       if (!cancelled) setNaver({ configured: res.configured, loaded: true });
     });
+    fetch("/api/translate/status", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { configured: false }))
+      .then((res: { configured?: boolean }) => {
+        if (!cancelled)
+          setGemini({ configured: Boolean(res.configured), loaded: true });
+      })
+      .catch(() => {
+        if (!cancelled) setGemini({ configured: false, loaded: true });
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const onTestGemini = async () => {
+    setGeminiTest({ state: "running" });
+    try {
+      const res = await fetch("/api/translate/test", { cache: "no-store" });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        sample?: string;
+        error?: string;
+      };
+      if (res.ok && data.ok) {
+        setGeminiTest({ state: "ok", sample: data.sample });
+      } else {
+        setGeminiTest({
+          state: "error",
+          error: data.error || `HTTP ${res.status}`,
+        });
+      }
+    } catch (err) {
+      setGeminiTest({
+        state: "error",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
 
   const onSave = () => {
     setKakaoKey(kakaoKey);
@@ -196,6 +241,95 @@ export default function SettingsPanel() {
             </>
           )}
         </Banner>
+      </Card>
+
+      <Card
+        title="Gemini API"
+        caption="외부 키 (서버, AI)"
+        statusOk={gemini.configured}
+        statusOkText={gemini.loaded ? "ready" : "checking…"}
+        statusBadText="missing"
+      >
+        <p
+          className="text-[13.5px] m-0 mb-4"
+          style={{ color: "var(--color-ink-2)" }}
+        >
+          한국어 병원명을 자동으로 영문으로 번역합니다 (Gemini 2.0 Flash).{" "}
+          <a
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1 underline font-semibold"
+            style={{ color: "var(--color-ink)" }}
+          >
+            aistudio.google.com/apikey
+            <IconExternal width={12} height={12} />
+          </a>
+          에서 무료 키를 발급받을 수 있습니다. 클라이언트에 노출되지 않도록
+          서버 전용 변수로 설정하세요.
+        </p>
+        <Banner tone={gemini.configured ? "success" : "danger"}>
+          {gemini.configured ? (
+            <>
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                GEMINI_API_KEY
+              </code>
+              가 서버에 설정되어 있습니다. 새로 등록되는 병원의 영문명이
+              자동으로 채워집니다.
+            </>
+          ) : (
+            <>
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                .env.local
+              </code>
+              에{" "}
+              <code
+                className="px-1.5 py-0.5 rounded text-[11.5px] font-mono"
+                style={{ background: "rgba(255,255,255,0.5)" }}
+              >
+                GEMINI_API_KEY
+              </code>
+              를 추가하고 dev 서버를 재시작하세요.{" "}
+              <strong>NEXT_PUBLIC_*</strong> 접두사 없이 서버 전용으로 두세요.
+              키가 없어도 등록은 동작합니다 — 영문명만 비어 있게 됩니다.
+            </>
+          )}
+        </Banner>
+
+        <div className="flex items-center gap-3 mt-3 flex-wrap">
+          <button
+            type="button"
+            onClick={onTestGemini}
+            disabled={!gemini.configured || geminiTest.state === "running"}
+            className={btnSecondaryCls + " h-9 px-4 text-[12.5px]"}
+          >
+            {geminiTest.state === "running" ? "테스트 중…" : "AI 번역 테스트"}
+          </button>
+          {geminiTest.state === "ok" && (
+            <span
+              className="inline-flex items-center gap-1.5 text-[12px] font-semibold"
+              style={{ color: "var(--color-success)" }}
+            >
+              <IconCheck width={12} height={12} />
+              {`강남이비인후과 → ${geminiTest.sample}`}
+            </span>
+          )}
+          {geminiTest.state === "error" && (
+            <span
+              className="inline-flex items-center gap-1.5 text-[12px] font-semibold"
+              style={{ color: "var(--color-danger)" }}
+            >
+              <IconX width={12} height={12} />
+              {geminiTest.error}
+            </span>
+          )}
+        </div>
       </Card>
 
       <Card
