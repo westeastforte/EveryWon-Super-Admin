@@ -3,8 +3,16 @@
 // directly to avoid pulling in @google/generative-ai (saves a dep and
 // keeps the server bundle small). Requires GEMINI_API_KEY in env.
 
-const MODEL = "gemini-2.0-flash";
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+// Tried in order. If a model returns a retryable error (404 deprecated,
+// 429 rate-limited, 5xx) we fall through to the next. Auth errors (400
+// API_KEY_INVALID, 401, 403) abort immediately — switching models won't help.
+const MODELS = [
+  "gemini-2.5-flash",
+  "gemini-flash-latest",
+  "gemini-2.5-pro",
+] as const;
+const endpointFor = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 export interface TranslateItem {
   nameKr: string;
@@ -22,36 +30,56 @@ Rules:
 
 const BATCH_PROMPT_HEADER = `Translate each Korean clinic name to English following the rules. Return a JSON array of strings, same order, same length as input. Output ONLY the JSON array — no markdown fences, no commentary.`;
 
+// Status alone isn't enough: a 400 can be a transient INVALID_ARGUMENT
+// (retry on next model) or API_KEY_INVALID (abort). Inspect the body.
+const isAuthError = (status: number, body: string): boolean => {
+  if (status === 401 || status === 403) return true;
+  if (status === 400 && /API_KEY_INVALID|API key/i.test(body)) return true;
+  return false;
+};
+
 const callGemini = async (prompt: string): Promise<string> => {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing on server");
 
-  const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 2048,
-        responseMimeType: "text/plain",
-      },
-    }),
-    cache: "no-store",
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 2048,
+      responseMimeType: "text/plain",
+    },
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Gemini ${res.status}: ${text.slice(0, 200)}`);
+  const errors: string[] = [];
+  for (const model of MODELS) {
+    const res = await fetch(`${endpointFor(model)}?key=${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+      };
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text.trim();
+      errors.push(`${model}: empty response`);
+      continue;
+    }
+
+    const errBody = await res.text();
+    const snippet = errBody.slice(0, 200);
+    if (isAuthError(res.status, errBody)) {
+      throw new Error(`Gemini ${res.status} (auth): ${snippet}`);
+    }
+    errors.push(`${model} ${res.status}: ${snippet}`);
   }
 
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini returned no text");
-  return text.trim();
+  throw new Error(`All Gemini models failed. ${errors.join(" | ")}`);
 };
 
 export const translateClinicName = async (
