@@ -143,7 +143,7 @@ export default function ClinicDetail({ id }: { id: string }) {
             mono
           />
           <Row label="Active" value={clinic.isActive ? "Yes" : "No"} />
-          <Row label="Verified" value={clinic.isVerified ? "Yes" : "No"} />
+          <Row label="Type" value="Listing only — info display" />
           <Row label="Created" value={fmtDate(clinic.createdAt)} mono />
           <Row label="Updated" value={fmtDate(clinic.updatedAt)} mono />
         </dl>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminKey } from "../../../../lib/apiAuth";
 
 // Server-side proxy for Naver Local Search. The endpoint requires
 // X-Naver-Client-Id / Secret headers and rejects browser CORS, so we
@@ -8,6 +9,9 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
+  const authErr = requireAdminKey(req);
+  if (authErr) return authErr;
+
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("query")?.trim();
   if (!query) {

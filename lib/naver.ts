@@ -1,5 +1,7 @@
 "use client";
 
+import { adminHeaders } from "./apiAuth";
+
 // Naver Local Search wrapper. Unlike Kakao's JS SDK, Naver's open API
 // only accepts server-side requests (X-Naver-Client-Id / Secret headers
 // and no CORS), so we proxy through /api/naver/search. Get a free key
@@ -61,7 +63,7 @@ export const searchNaverPlaces = async (
     display: String(Math.min(opts?.display ?? 5, 5)),
     start: String(opts?.start ?? 1),
   });
-  const res = await fetch(`/api/naver/search?${params.toString()}`);
+  const res = await fetch(`/api/naver/search?${params.toString()}`, { headers: adminHeaders() });
   if (!res.ok) {
     let detail = `Naver search failed: ${res.status}`;
     try {

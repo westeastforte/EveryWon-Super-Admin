@@ -32,6 +32,7 @@ export interface ClinicDoc {
   englishAvailable: boolean;
   isActive: boolean;
   isVerified?: boolean;
+  bookable: boolean;  // true = clinic uses dashboard and accepts appointments; false = info-only listing
   createdAt: string;
   updatedAt: string;
 }

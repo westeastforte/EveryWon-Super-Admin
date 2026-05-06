@@ -11,6 +11,7 @@ import {
   IconUpload,
 } from "./Icons";
 import SidebarStatus from "./SidebarStatus";
+import { signOut } from "../lib/auth";
 
 interface NavItem {
   href: string;
@@ -78,6 +79,15 @@ export default function Sidebar() {
       </nav>
 
       <SidebarStatus />
+      <div className="px-4 pb-4">
+        <button
+          onClick={() => signOut()}
+          className="w-full text-left px-2.5 py-2 rounded-md text-[12px] transition-colors hover:bg-white/5"
+          style={{ color: "var(--color-rail-ink-muted)" }}
+        >
+          Sign out
+        </button>
+      </div>
     </aside>
   );
 }

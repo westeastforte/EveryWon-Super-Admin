@@ -14,6 +14,8 @@ const KOREAN_TO_CATEGORY: Array<[RegExp, string]> = [
   [/가정의/, "family"],
   [/정신|심리/, "psychiatry"],
   [/한의|한방/, "oriental"],
+  [/재활/, "rehabilitation"],
+  [/응급/, "emergency"],
 ];
 
 export const inferCategory = (...sources: (string | undefined | null)[]): string => {

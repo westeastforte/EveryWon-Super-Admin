@@ -29,6 +29,8 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "family", label: "Family Medicine · 가정의학과" },
   { value: "psychiatry", label: "Psychiatry · 정신건강의학과" },
   { value: "oriental", label: "Oriental Medicine · 한의원" },
+  { value: "rehabilitation", label: "Rehabilitation · 재활의학과" },
+  { value: "emergency", label: "Emergency · 응급의학과" },
 ];
 
 interface AddressState {

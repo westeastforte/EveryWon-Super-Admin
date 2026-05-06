@@ -1,5 +1,6 @@
 "use client";
 
+import { adminHeaders } from "./apiAuth";
 import {
   addDoc,
   collection,
@@ -32,7 +33,7 @@ const fetchTranslations = async (
   try {
     const res = await fetch("/api/translate", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...adminHeaders() },
       body: JSON.stringify({ items }),
     });
     if (!res.ok) return items.map(() => undefined);
@@ -79,6 +80,7 @@ const buildDoc = (
     englishAvailable: Boolean(input.englishAvailable),
     isActive: true,
     isVerified: false,
+    bookable: false,
     createdAt: now,
     updatedAt: now,
   };

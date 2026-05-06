@@ -3,6 +3,7 @@ import {
   translateClinicNamesBatch,
   type TranslateItem,
 } from "../../../lib/translate";
+import { requireAdminKey } from "../../../lib/apiAuth";
 
 // Server-side Gemini proxy. Keeps GEMINI_API_KEY server-only.
 // POST { items: [{ nameKr, address? }] } → { translations: string[] }
@@ -14,6 +15,9 @@ export const runtime = "nodejs";
 const MAX_ITEMS = 50;
 
 export async function POST(req: Request) {
+  const authErr = requireAdminKey(req);
+  if (authErr) return authErr;
+
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json(
       { error: "GEMINI_API_KEY missing on server" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { Auth, getAuth as firebaseGetAuth } from "firebase/auth";
 import { Firestore, getFirestore, initializeFirestore } from "firebase/firestore";
 
 // Firebase web config keys are not secrets — they identify the project.
@@ -18,6 +19,7 @@ const firebaseConfig = {
 
 let _app: FirebaseApp | null = null;
 let _db: Firestore | null = null;
+let _auth: Auth | null = null;
 
 export const getFirebaseApp = (): FirebaseApp => {
   if (_app) return _app;
@@ -39,6 +41,12 @@ export const getDb = (): Firestore => {
     _db = getFirestore(app);
   }
   return _db;
+};
+
+export const getAuth = (): Auth => {
+  if (_auth) return _auth;
+  _auth = firebaseGetAuth(getFirebaseApp());
+  return _auth;
 };
 
 export const hasFirebaseConfig = (): boolean =>
