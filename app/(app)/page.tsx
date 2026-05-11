@@ -1,12 +1,12 @@
 import Link from "next/link";
-import PageHeader from "../components/PageHeader";
-import OverviewStats from "../components/OverviewStats";
+import PageHeader from "@/components/PageHeader";
+import OverviewStats from "@/components/OverviewStats";
 import {
   IconArrowRight,
   IconPin,
   IconSearch,
   IconUpload,
-} from "../components/Icons";
+} from "@/components/Icons";
 
 export default function Page() {
   return (

@@ -1,5 +1,5 @@
-import PageHeader from "../../../components/PageHeader";
-import BulkImport from "../../../components/BulkImport";
+import PageHeader from "@/components/PageHeader";
+import BulkImport from "@/components/BulkImport";
 
 export default function Page() {
   return (

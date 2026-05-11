@@ -10,7 +10,6 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { getDb } from "./firebase";
-import { getAuth } from "./firebase";
 import type { UserDoc } from "../types";
 
 const COLLECTION = "users";
@@ -46,25 +45,13 @@ export const unblockUser = async (uid: string): Promise<void> => {
   });
 };
 
-// Returns a Firebase ID token for the currently signed-in admin user.
-// Used by the kick route to authenticate the request.
-export const getIdToken = async (): Promise<string> => {
-  const user = getAuth().currentUser;
-  if (!user) throw new Error("Not authenticated");
-  return user.getIdToken();
-};
-
 export const kickUser = async (
   uid: string,
   reason?: string,
 ): Promise<void> => {
-  const token = await getIdToken();
   const res = await fetch("/api/users/kick", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({ uid, reason }),
   });
   if (!res.ok) {

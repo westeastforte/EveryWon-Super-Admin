@@ -1,5 +1,5 @@
-import PageHeader from "../../components/PageHeader";
-import ClinicList from "../../components/ClinicList";
+import PageHeader from "@/components/PageHeader";
+import ClinicList from "@/components/ClinicList";
 
 export default function Page() {
   return (

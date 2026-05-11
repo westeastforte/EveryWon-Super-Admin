@@ -1,5 +1,5 @@
-import PageHeader from "../../components/PageHeader";
-import ReportList from "../../components/ReportList";
+import PageHeader from "@/components/PageHeader";
+import ReportList from "@/components/ReportList";
 
 export default function Page() {
   return (

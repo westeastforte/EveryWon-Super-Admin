@@ -1,5 +1,5 @@
-import ClinicEdit from "../../../../components/ClinicEdit";
-import PageHeader from "../../../../components/PageHeader";
+import ClinicEdit from "@/components/ClinicEdit";
+import PageHeader from "@/components/PageHeader";
 
 export default async function Page({
   params,

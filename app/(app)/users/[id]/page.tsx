@@ -1,5 +1,5 @@
-import PageHeader from "../../../components/PageHeader";
-import UserDetail from "../../../components/UserDetail";
+import PageHeader from "@/components/PageHeader";
+import UserDetail from "@/components/UserDetail";
 
 export default async function Page({
   params,

@@ -13,7 +13,12 @@ import {
   IconUsers,
 } from "./Icons";
 import SidebarStatus from "./SidebarStatus";
-import { signOut } from "../lib/auth";
+import { useRouter } from "next/navigation";
+
+async function logout(router: ReturnType<typeof useRouter>) {
+  await fetch("/api/auth/logout", { method: "POST" });
+  router.push("/login");
+}
 
 interface NavItem {
   href: string;
@@ -41,6 +46,7 @@ const SYS_NAV: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
 
@@ -85,7 +91,7 @@ export default function Sidebar() {
       <SidebarStatus />
       <div className="px-4 pb-4">
         <button
-          onClick={() => signOut()}
+          onClick={() => logout(router)}
           className="w-full text-left px-2.5 py-2 rounded-md text-[12px] transition-colors hover:bg-white/5"
           style={{ color: "var(--color-rail-ink-muted)" }}
         >

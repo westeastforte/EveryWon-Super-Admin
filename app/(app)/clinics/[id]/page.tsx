@@ -1,5 +1,5 @@
-import ClinicDetail from "../../../components/ClinicDetail";
-import PageHeader from "../../../components/PageHeader";
+import ClinicDetail from "@/components/ClinicDetail";
+import PageHeader from "@/components/PageHeader";
 
 export default async function Page({
   params,

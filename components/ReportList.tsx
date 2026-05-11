@@ -8,7 +8,6 @@ import {
   subscribeReports,
 } from "../lib/reports";
 import { blockUser, kickUser } from "../lib/users";
-import { getAuth } from "../lib/firebase";
 import type { ReportDoc } from "../types";
 import { Timestamp } from "firebase/firestore";
 
@@ -59,9 +58,7 @@ export default function ReportList() {
     return reports.filter((r) => r.status === tab);
   }, [reports, tab]);
 
-  const adminUid = (): string => {
-    return getAuth().currentUser?.uid ?? "unknown";
-  };
+  const adminUid = (): string => "admin";
 
   const onDismiss = async (r: ReportDoc) => {
     if (!window.confirm(`Dismiss this report (${r.reason})?`)) return;

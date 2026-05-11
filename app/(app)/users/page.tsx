@@ -1,5 +1,5 @@
-import PageHeader from "../../components/PageHeader";
-import UserList from "../../components/UserList";
+import PageHeader from "@/components/PageHeader";
+import UserList from "@/components/UserList";
 
 export default function Page() {
   return (

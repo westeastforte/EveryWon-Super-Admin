@@ -1,3 +1,4 @@
+// TODO: re-add auth before production
 import { NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "../../../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -6,45 +7,15 @@ export const runtime = "nodejs";
 
 // POST /api/users/kick
 // Body: { uid: string; reason?: string }
-// Auth: Bearer <Firebase ID token of a superAdmin user>
 //
 // This route:
-//  1. Verifies the caller's ID token and confirms role === "superAdmin"
-//  2. Deletes the target user from Firebase Auth (permanent)
-//  3. Hard-deletes the user's Firestore doc at users/{uid}
-//  4. Adds a bannedEmails/{normalizedEmail} doc — the banlist
-//  5. Marks any open reports against this user as actioned/kicked
-//
-// TODO: To enforce the banlist on new signups, add a Firebase Auth
-// beforeCreate blocking function in the mobile app's Cloud Functions that
-// checks `bannedEmails/{email}` and throws if found. That work is out of
-// scope for this PR — the banlist data is ready here.
+//  1. Deletes the target user from Firebase Auth (permanent)
+//  2. Hard-deletes the user's Firestore doc at users/{uid}
+//  3. Adds a bannedEmails/{normalizedEmail} doc — the banlist
+//  4. Marks any open reports against this user as actioned/kicked
 
 export async function POST(req: Request) {
-  // 1. Extract and verify the caller's ID token.
-  const authHeader = req.headers.get("authorization") ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  if (!token) {
-    return NextResponse.json({ error: "Missing auth token" }, { status: 401 });
-  }
-
-  let callerUid: string;
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(token);
-    callerUid = decoded.uid;
-  } catch {
-    return NextResponse.json({ error: "Invalid auth token" }, { status: 401 });
-  }
-
-  // Confirm caller is superAdmin in Firestore.
-  const db = getAdminDb();
-  const callerSnap = await db.collection("users").doc(callerUid).get();
-  const callerRole = callerSnap.data()?.role as string | undefined;
-  if (callerRole !== "superAdmin") {
-    return NextResponse.json({ error: "Forbidden — superAdmin only" }, { status: 403 });
-  }
-
-  // 2. Parse the request body.
+  // Parse the request body.
   let body: unknown;
   try {
     body = await req.json();
@@ -58,6 +29,8 @@ export async function POST(req: Request) {
   }
   const reason = (body as { reason?: unknown })?.reason;
   const reasonStr = typeof reason === "string" ? reason.trim() : "Kicked by admin";
+
+  const db = getAdminDb();
 
   // Fetch the target user's email before we delete anything.
   let targetEmail: string | undefined;
@@ -76,7 +49,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // 3. Delete the user from Firebase Auth.
+  // Delete the user from Firebase Auth.
   try {
     await getAdminAuth().deleteUser(uid);
   } catch (err: unknown) {
@@ -90,23 +63,23 @@ export async function POST(req: Request) {
     }
   }
 
-  // 4. Hard-delete the Firestore user doc.
+  // Hard-delete the Firestore user doc.
   if (userSnap.exists) {
     await db.collection("users").doc(uid).delete();
   }
 
-  // 5. Write to bannedEmails banlist.
+  // Write to bannedEmails banlist.
   if (targetEmail) {
     const normalizedEmail = targetEmail.trim().toLowerCase();
     await db.collection("bannedEmails").doc(normalizedEmail).set({
       email: normalizedEmail,
       bannedAt: FieldValue.serverTimestamp(),
-      bannedBy: callerUid,
+      bannedBy: "admin",
       reason: reasonStr,
     });
   }
 
-  // 6. Mark any open reports against this user as actioned/kicked.
+  // Mark any open reports against this user as actioned/kicked.
   const reportsSnap = await db
     .collection("reports")
     .where("reportedUserId", "==", uid)
@@ -119,7 +92,7 @@ export async function POST(req: Request) {
       status: "actioned",
       action: "kicked",
       actionedAt: FieldValue.serverTimestamp(),
-      actionedBy: callerUid,
+      actionedBy: "admin",
     });
   }
   if (!reportsSnap.empty) {

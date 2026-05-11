@@ -1,5 +1,5 @@
-import PageHeader from "../../../components/PageHeader";
-import PlaceSearch from "../../../components/PlaceSearch";
+import PageHeader from "@/components/PageHeader";
+import PlaceSearch from "@/components/PlaceSearch";
 
 export default function Page() {
   return (

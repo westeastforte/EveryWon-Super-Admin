@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "../components/Sidebar";
-import AuthGuard from "../components/AuthGuard";
 
 export const metadata: Metadata = {
   title: "Everywon Admin",
@@ -13,16 +11,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body className="min-h-screen antialiased">
-        <AuthGuard>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 min-w-0">
-              <div className="max-w-[960px] mx-auto px-8 py-8">{children}</div>
-            </main>
-          </div>
-        </AuthGuard>
-      </body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

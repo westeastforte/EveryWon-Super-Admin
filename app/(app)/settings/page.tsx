@@ -1,5 +1,5 @@
-import PageHeader from "../../components/PageHeader";
-import SettingsPanel from "../../components/SettingsPanel";
+import PageHeader from "@/components/PageHeader";
+import SettingsPanel from "@/components/SettingsPanel";
 
 export default function Page() {
   return (
