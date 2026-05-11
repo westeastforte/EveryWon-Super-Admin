@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   IconClinics,
+  IconFlag,
   IconOverview,
   IconPin,
   IconSearch,
   IconSettings,
   IconUpload,
+  IconUsers,
 } from "./Icons";
 import SidebarStatus from "./SidebarStatus";
 import { signOut } from "../lib/auth";
@@ -23,6 +25,8 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/", label: "Overview", sub: "현황", Icon: IconOverview },
   { href: "/clinics", label: "Clinics", sub: "등록된 병원", Icon: IconClinics },
+  { href: "/users", label: "Users", sub: "사용자 관리", Icon: IconUsers },
+  { href: "/reports", label: "Reports", sub: "신고 관리", Icon: IconFlag },
 ];
 
 const ADD_NAV: NavItem[] = [

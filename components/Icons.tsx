@@ -108,3 +108,25 @@ export const IconSparkle = (p: Props) => (
     <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" />
   </Base>
 );
+
+export const IconUsers = (p: Props) => (
+  <Base {...p}>
+    <circle cx="9" cy="7" r="4" />
+    <path d="M1 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+  </Base>
+);
+
+export const IconFlag = (p: Props) => (
+  <Base {...p}>
+    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+    <path d="M4 22v-7" />
+  </Base>
+);
+
+export const IconBan = (p: Props) => (
+  <Base {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m4.9 4.9 14.2 14.2" />
+  </Base>
+);

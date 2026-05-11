@@ -1,3 +1,68 @@
+import type { Timestamp } from "firebase/firestore";
+
+// ---------------------------------------------------------------------------
+// Users
+// ---------------------------------------------------------------------------
+
+// Shape stored in Firestore `users/{uid}`. Created by the mobile app on
+// sign-up. The admin writes only `isBlocked`, `blockedAt`, and `deletedAt`.
+export interface UserDoc {
+  id: string;
+  name?: string;
+  displayName?: string;
+  email?: string;
+  photoURL?: string;
+  role?: string;           // e.g. "user", "admin", "superAdmin"
+  isBlocked?: boolean;
+  blockedAt?: Timestamp | null;
+  createdAt?: Timestamp | string | null;
+  updatedAt?: Timestamp | string | null;
+  deletedAt?: Timestamp | null;
+}
+
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+// Shape stored in Firestore `reports/{id}`. Written by the mobile app when a
+// user reports another user. The mobile app schema is assumed (no report
+// feature was found in the mobile codebase at the time of this build).
+// Fields that may differ in the live DB are marked optional.
+export interface ReportDoc {
+  id: string;
+  reportedUserId: string;
+  reportedUserEmail?: string;
+  reportedBy: string;           // uid of the reporter
+  reporterEmail?: string;
+  reason: string;
+  details?: string;
+  status: "pending" | "reviewed" | "actioned" | "dismissed";
+  action?: "warned" | "blocked" | "kicked" | "dismissed";
+  createdAt: Timestamp;
+  actionedAt?: Timestamp | null;
+  actionedBy?: string;          // admin uid
+}
+
+// ---------------------------------------------------------------------------
+// Banlist
+// ---------------------------------------------------------------------------
+
+// Shape stored in Firestore `bannedEmails/{normalizedEmail}`.
+// Written by /api/users/kick when a user is permanently removed.
+// TODO: enforcement on signup requires either a Firebase Auth beforeCreate
+// blocking function or a signup-side check in the mobile app — the banlist
+// data is ready here, but that enforcement work is out of scope for this PR.
+export interface BannedEmailDoc {
+  email: string;
+  bannedAt: Timestamp;
+  bannedBy: string;   // admin uid
+  reason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Clinics
+// ---------------------------------------------------------------------------
+
 // Shape stored in Firestore `clinics/{id}`. Mirrors the patient app's
 // `types/dashboard.ts` Clinic interface — keep the field names in sync
 // or the patient app's `adaptDashClinicToApp` will drop them.
