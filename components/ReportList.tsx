@@ -22,6 +22,17 @@ function fmtDate(val: Timestamp | null | undefined): string {
   }
 }
 
+function targetTypeLabel(t?: ReportDoc["targetType"]): string {
+  switch (t) {
+    case "post":
+      return "Post";
+    case "comment":
+      return "Comment";
+    default:
+      return "User";
+  }
+}
+
 const STATUS_BADGE: Record<
   ReportDoc["status"],
   { label: string; bg: string; color: string }
@@ -212,6 +223,7 @@ export default function ReportList() {
                 }}
               >
                 <th className="px-4 py-2.5 font-semibold">Reported User</th>
+                <th className="px-4 py-2.5 font-semibold">Target</th>
                 <th className="px-4 py-2.5 font-semibold">Reporter</th>
                 <th className="px-4 py-2.5 font-semibold">Reason</th>
                 <th className="px-4 py-2.5 font-semibold">Filed</th>
@@ -244,6 +256,34 @@ export default function ReportList() {
                         >
                           {r.reportedUserId}
                         </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-0.5 max-w-[180px]">
+                        <span
+                          className="text-[10.5px] font-semibold uppercase tracking-[0.1em] px-2 py-0.5 rounded-md self-start"
+                          style={{
+                            background: "var(--color-subtle)",
+                            color: "var(--color-ink-2)",
+                          }}
+                        >
+                          {targetTypeLabel(r.targetType)}
+                        </span>
+                        {r.targetType && r.targetType !== "user" && (
+                          <span
+                            className="font-mono text-[10.5px] truncate"
+                            style={{ color: "var(--color-ink-3)" }}
+                            title={
+                              r.targetType === "comment" && r.targetPostId
+                                ? `comment ${r.targetId} on post ${r.targetPostId}`
+                                : r.targetId
+                            }
+                          >
+                            {r.targetType === "comment" && r.targetPostId
+                              ? `post ${r.targetPostId} · ${r.targetId}`
+                              : r.targetId}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td
