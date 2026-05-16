@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const session = req.cookies.get("admin_session")?.value;
+export function middleware(_req: NextRequest) {
+  // AUTH TEMPORARILY DISABLED — open access while testing the app +
+  // super-admin together. Re-enable the gate below before any real
+  // deployment (and remove this early return).
+  return NextResponse.next();
 
-  // Already authenticated — let through
-  if (session === "ok") return NextResponse.next();
-
-  // Auth routes are always public
-  if (pathname.startsWith("/api/auth/")) return NextResponse.next();
-  if (pathname === "/login") return NextResponse.next();
-
-  // Everything else requires the session cookie
-  const loginUrl = req.nextUrl.clone();
-  loginUrl.pathname = "/login";
-  return NextResponse.redirect(loginUrl);
+  /* eslint-disable no-unreachable */
+  // --- Original cookie-session gate (restore by deleting the return above) ---
+  // const { pathname } = _req.nextUrl;
+  // const session = _req.cookies.get("admin_session")?.value;
+  // if (session === "ok") return NextResponse.next();
+  // if (pathname.startsWith("/api/auth/")) return NextResponse.next();
+  // if (pathname === "/login") return NextResponse.next();
+  // const loginUrl = _req.nextUrl.clone();
+  // loginUrl.pathname = "/login";
+  // return NextResponse.redirect(loginUrl);
+  /* eslint-enable no-unreachable */
 }
 
 export const config = {
