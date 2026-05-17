@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SESSION_COOKIE, verifySessionToken } from "./lib/session";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const session = req.cookies.get("admin_session")?.value;
 
-  // Already authenticated — let through
-  if (session === "ok") return NextResponse.next();
+  // Always allow the auth endpoints and the login page through, otherwise
+  // there is no way to obtain a session.
+  if (pathname === "/login" || pathname.startsWith("/api/auth/")) {
+    return NextResponse.next();
+  }
 
-  // Auth routes are always public
-  if (pathname.startsWith("/api/auth/")) return NextResponse.next();
-  if (pathname === "/login") return NextResponse.next();
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  if (await verifySessionToken(token)) {
+    return NextResponse.next();
+  }
 
-  // Everything else requires the session cookie
+  // Unauthenticated. API calls get a 401 JSON; page navigations are
+  // redirected to the login screen.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const loginUrl = req.nextUrl.clone();
   loginUrl.pathname = "/login";
   return NextResponse.redirect(loginUrl);

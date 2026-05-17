@@ -1,7 +1,7 @@
-// TODO: re-add auth before production
 import { NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "../../../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { hasValidAdminSession } from "../../../../lib/session";
 
 export const runtime = "nodejs";
 
@@ -15,6 +15,13 @@ export const runtime = "nodejs";
 //  4. Marks any open reports against this user as actioned/kicked
 
 export async function POST(req: Request) {
+  // Defense in depth: this route uses the Admin SDK, which bypasses
+  // Firestore rules entirely, so it must verify the admin session itself
+  // and not rely solely on middleware.
+  if (!(await hasValidAdminSession(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   // Parse the request body.
   let body: unknown;
   try {

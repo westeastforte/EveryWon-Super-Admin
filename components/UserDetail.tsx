@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { doc, getDoc, onSnapshot, query, collection, where, orderBy } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, query, collection, where } from "firebase/firestore";
 import { getDb } from "../lib/firebase";
 import { blockUser, kickUser, unblockUser } from "../lib/users";
 import type { ReportDoc, UserDoc } from "../types";
@@ -66,6 +66,7 @@ const STATUS_BADGE: Record<
 export default function UserDetail({ id }: { id: string }) {
   const [user, setUser] = useState<UserDoc | null | "loading">("loading");
   const [reports, setReports] = useState<ReportDoc[] | null>(null);
+  const [reportsError, setReportsError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,22 +91,42 @@ export default function UserDetail({ id }: { id: string }) {
 
   useEffect(() => {
     // Real-time subscription to reports filed against this user.
+    //
+    // Equality filter only — no orderBy — so this is served by single-field
+    // indexes and needs NO composite index (this project has no Firestore
+    // index deploy pipeline). The result set per user is small, so we sort
+    // newest-first client-side instead.
+    const toMillis = (v: ReportDoc["createdAt"]): number => {
+      if (!v) return 0;
+      if (v instanceof Timestamp) return v.toMillis();
+      if (typeof v === "string") {
+        const t = Date.parse(v);
+        return Number.isNaN(t) ? 0 : t;
+      }
+      return 0;
+    };
     const q = query(
       collection(getDb(), "reports"),
       where("reportedUserId", "==", id),
-      orderBy("createdAt", "desc"),
     );
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setReports(
-          snap.docs.map((d) => ({
-            id: d.id,
-            ...(d.data() as Omit<ReportDoc, "id">),
-          })),
-        );
+        const docs = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<ReportDoc, "id">),
+        }));
+        docs.sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+        setReportsError(null);
+        setReports(docs);
       },
-      () => setReports([]),
+      (err) => {
+        // Surface the failure instead of silently rendering "No reports
+        // found" — a swallowed error here hides real reports from moderators.
+        console.error("reports subscription failed", err);
+        setReportsError(err instanceof Error ? err.message : String(err));
+        setReports([]);
+      },
     );
     return () => unsub();
   }, [id]);
@@ -303,7 +324,15 @@ export default function UserDetail({ id }: { id: string }) {
             Loading…
           </div>
         )}
-        {reports && reports.length === 0 && (
+        {reportsError && (
+          <div
+            className="px-4 py-8 text-center text-[13px]"
+            style={{ color: "var(--color-danger, #c0362c)" }}
+          >
+            Could not load reports — {reportsError}
+          </div>
+        )}
+        {!reportsError && reports && reports.length === 0 && (
           <div
             className="px-4 py-8 text-center text-[13px]"
             style={{ color: "var(--color-ink-3)" }}

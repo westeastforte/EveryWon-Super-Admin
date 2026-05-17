@@ -34,6 +34,12 @@ export interface ReportDoc {
   reportedUserEmail?: string;
   reportedBy: string;           // uid of the reporter
   reporterEmail?: string;
+  // What the report is actually against. The mobile app writes these for
+  // post/comment reports; older user-only reports omit them (treat as
+  // "user"). Block/kick still act on `reportedUserId` (the author).
+  targetType?: "user" | "post" | "comment";
+  targetId?: string;            // user uid, post id, or comment id
+  targetPostId?: string | null; // parent post id for comment reports
   reason: string;
   details?: string;
   status: "pending" | "reviewed" | "actioned" | "dismissed";
