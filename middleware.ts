@@ -1,22 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SESSION_COOKIE, verifySessionToken } from "./lib/session";
 
-export function middleware(_req: NextRequest) {
-  // AUTH TEMPORARILY DISABLED — open access while testing the app +
-  // super-admin together. Re-enable the gate below before any real
-  // deployment (and remove this early return).
-  return NextResponse.next();
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-  /* eslint-disable no-unreachable */
-  // --- Original cookie-session gate (restore by deleting the return above) ---
-  // const { pathname } = _req.nextUrl;
-  // const session = _req.cookies.get("admin_session")?.value;
-  // if (session === "ok") return NextResponse.next();
-  // if (pathname.startsWith("/api/auth/")) return NextResponse.next();
-  // if (pathname === "/login") return NextResponse.next();
-  // const loginUrl = _req.nextUrl.clone();
-  // loginUrl.pathname = "/login";
-  // return NextResponse.redirect(loginUrl);
-  /* eslint-enable no-unreachable */
+  // Always allow the auth endpoints and the login page through, otherwise
+  // there is no way to obtain a session.
+  if (pathname === "/login" || pathname.startsWith("/api/auth/")) {
+    return NextResponse.next();
+  }
+
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  if (await verifySessionToken(token)) {
+    return NextResponse.next();
+  }
+
+  // Unauthenticated. API calls get a 401 JSON; page navigations are
+  // redirected to the login screen.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const loginUrl = req.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
